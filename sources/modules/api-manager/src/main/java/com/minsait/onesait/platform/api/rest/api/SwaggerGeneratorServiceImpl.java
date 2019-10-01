@@ -14,15 +14,19 @@
  */
 package com.minsait.onesait.platform.api.rest.api;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Base64;
+
 import javax.ws.rs.core.Response;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.minsait.onesait.platform.api.rest.api.dto.ApiDTO;
@@ -34,15 +38,19 @@ import com.minsait.onesait.platform.commons.exception.GenericOPException;
 import com.minsait.onesait.platform.config.model.Api;
 import com.minsait.onesait.platform.config.model.Api.ApiType;
 import com.minsait.onesait.platform.resources.service.IntegrationResourcesService;
-import com.minsait.onesait.platform.resources.service.IntegrationResourcesServiceImpl.Module;
-import com.minsait.onesait.platform.resources.service.IntegrationResourcesServiceImpl.ServiceUrl;
 
 import io.swagger.jaxrs.config.BeanConfig;
 import io.swagger.models.Path;
 import io.swagger.models.Swagger;
 import io.swagger.models.parameters.HeaderParameter;
 import io.swagger.models.parameters.Parameter;
+import io.swagger.parser.OpenAPIParser;
 import io.swagger.parser.SwaggerParser;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.servers.Server;
+import io.swagger.v3.oas.models.servers.ServerVariable;
+import io.swagger.v3.parser.core.models.SwaggerParseResult;
 import lombok.extern.slf4j.Slf4j;
 
 @Component("swaggerGeneratorServiceImpl")
@@ -123,17 +131,45 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
 		if (api.getApiType().equals(ApiType.EXTERNAL_FROM_JSON)) {
-			final SwaggerParser swaggerParser = new SwaggerParser();
-			final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
-
-			addCustomHeaderToPaths(swagger);
-			swagger.setHost(null);
-			swagger.setBasePath(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
-
+			JsonNode jsonNode = null;
 			try {
-				return Response.ok(mapper.writeValueAsString(swagger)).build();
-			} catch (JsonProcessingException e) {
+				jsonNode = mapper.readTree(api.getSwaggerJson());
+				
+			} catch (IOException e) {
 				log.error("getApiWithoutToken Error", e);
+				// FIXME salir con una excepcion por aqui???
+			}
+			
+			if(jsonNode != null && jsonNode.has("swagger")) {
+				final SwaggerParser swaggerParser = new SwaggerParser();
+				final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
+	
+				addCustomHeaderToPaths(swagger);
+				swagger.setHost(null);
+				swagger.setBasePath(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
+	
+				try {
+					return Response.ok(mapper.writeValueAsString(swagger)).build();
+				} catch (JsonProcessingException e) {
+					log.error("getApiWithoutToken Error", e);
+				}
+			}
+			else if(jsonNode != null && jsonNode.has("openapi")) {
+				final OpenAPIParser openAPIParser = new OpenAPIParser();
+				SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
+				OpenAPI openAPI = swaggerParseResult.getOpenAPI();
+
+				addCustomHeaderToPaths(openAPI);
+				
+//				openAPI.getServers().forEach(s -> s.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification() + "/server/" + Base64.getEncoder().encodeToString(s.getUrl().getBytes())));
+				Server server = new Server();
+				server.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
+				openAPI.setServers(Arrays.asList(new Server [] {server}));
+				try {
+					return Response.ok(mapper.writeValueAsString(openAPI)).build();
+				} catch (JsonProcessingException e) {
+					log.error("getApiWithoutToken Error", e);
+				}
 			}
 		}
 		final ApiDTO apiDto = apiFIQL.toApiDTO(api);
@@ -165,6 +201,18 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		swagger.getPaths().entrySet().forEach(p -> {
 			final Path path = p.getValue();
 			path.getOperations().forEach(o -> o.addParameter(header));
+		});
+	}
+	
+	private void addCustomHeaderToPaths(OpenAPI openAPI) {
+		final io.swagger.v3.oas.models.parameters.Parameter header = new io.swagger.v3.oas.models.parameters.HeaderParameter();
+		header.setIn("header");
+		header.setDescription("onesait Platform API Key");
+		header.setName(Constants.AUTHENTICATION_HEADER);
+		header.setRequired(true);
+		openAPI.getPaths().entrySet().forEach(p -> {
+			final PathItem path = p.getValue();
+			path.readOperations().forEach(o -> o.addParametersItem(header));
 		});
 	}
 

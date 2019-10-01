@@ -25,7 +25,7 @@ import java.util.Map.Entry;
 import org.apache.cxf.Bus;
 import org.apache.cxf.endpoint.Server;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
-import org.apache.cxf.jaxrs.swagger.Swagger2Feature;
+import org.apache.cxf.jaxrs.openapi.OpenApiFeature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -63,24 +63,39 @@ public class JaxRSConfig {
 		endpoint.setProviders(providers);
 		endpoint.setServiceBeans(lista);
 		endpoint.setAddress("/");
-		endpoint.setFeatures(Arrays.asList(createSwaggerFeature()));
+//		endpoint.setFeatures(Arrays.asList(createSwaggerFeature()));
+		endpoint.setFeatures(Arrays.asList(createOpenApiFeature()));
 		endpoint.setProperties(
 				Collections.singletonMap("org.apache.cxf.management.service.counter.name", "cxf-services."));
 		return endpoint.create();
 	}
 
-	public Swagger2Feature createSwaggerFeature() {
-		final Swagger2Feature swagger2Feature = new Swagger2Feature();
-		swagger2Feature.setPrettyPrint(true);
-		swagger2Feature.setTitle("onesait Platform API Manager");
-		swagger2Feature.setContact("The onesait Platform team");
-		swagger2Feature.setDescription("");
-		swagger2Feature.setVersion("1.0.0");
-		swagger2Feature.setPrettyPrint(true);
-		swagger2Feature.setScan(true);
-		swagger2Feature.setScanAllResources(true);
-		swagger2Feature.setSupportSwaggerUi(true);
-		return swagger2Feature;
+	public OpenApiFeature createOpenApiFeature() {
+		final OpenApiFeature openApiFeature = new OpenApiFeature();
+		openApiFeature.setPrettyPrint(true);
+		openApiFeature.setTitle("onesait Platform API Manager");
+		openApiFeature.setContactName("The onesait Platform team");
+		openApiFeature.setDescription("");
+		openApiFeature.setVersion("1.0.0");
+		openApiFeature.setPrettyPrint(true);
+		openApiFeature.setScan(true);
+		openApiFeature.setScanKnownConfigLocations(true);
+		openApiFeature.setSupportSwaggerUi(true);
+		return openApiFeature;
 	}
+	
+//	public Swagger2Feature createSwaggerFeature() {
+//		final Swagger2Feature swagger2Feature = new Swagger2Feature();
+//		swagger2Feature.setPrettyPrint(true);
+//		swagger2Feature.setTitle("onesait Platform API Manager");
+//		swagger2Feature.setContact("The onesait Platform team");
+//		swagger2Feature.setDescription("");
+//		swagger2Feature.setVersion("1.0.0");
+//		swagger2Feature.setPrettyPrint(true);
+//		swagger2Feature.setScan(true);
+//		swagger2Feature.setScanAllResources(true);
+//		swagger2Feature.setSupportSwaggerUi(true);
+//		return swagger2Feature;
+//	}
 
 }
