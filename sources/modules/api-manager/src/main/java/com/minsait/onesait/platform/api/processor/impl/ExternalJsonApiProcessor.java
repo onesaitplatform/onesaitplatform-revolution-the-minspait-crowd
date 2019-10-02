@@ -228,7 +228,6 @@ public class ExternalJsonApiProcessor implements ApiProcessor {
 				sb.append(param).append("&&");
 			});
 		}
-
 		return sb.toString();
 	}
 
