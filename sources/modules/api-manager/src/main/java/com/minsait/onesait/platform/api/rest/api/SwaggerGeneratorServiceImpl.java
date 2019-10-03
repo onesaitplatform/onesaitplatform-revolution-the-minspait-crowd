@@ -16,7 +16,6 @@ package com.minsait.onesait.platform.api.rest.api;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Base64;
 
 import javax.ws.rs.core.Response;
 
@@ -43,13 +42,12 @@ import io.swagger.jaxrs.config.BeanConfig;
 import io.swagger.models.Path;
 import io.swagger.models.Swagger;
 import io.swagger.models.parameters.HeaderParameter;
-import io.swagger.models.parameters.Parameter;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.parser.SwaggerParser;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.servers.Server;
-import io.swagger.v3.oas.models.servers.ServerVariable;
 import io.swagger.v3.parser.core.models.SwaggerParseResult;
 import lombok.extern.slf4j.Slf4j;
 
@@ -134,37 +132,37 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 			JsonNode jsonNode = null;
 			try {
 				jsonNode = mapper.readTree(api.getSwaggerJson());
-				
+
 			} catch (IOException e) {
 				log.error("getApiWithoutToken Error", e);
 				// FIXME salir con una excepcion por aqui???
 			}
-			
-			if(jsonNode != null && jsonNode.has("swagger")) {
+
+			if (jsonNode != null && !jsonNode.path("swagger").asText().isEmpty()) {
 				final SwaggerParser swaggerParser = new SwaggerParser();
 				final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
-	
+
 				addCustomHeaderToPaths(swagger);
 				swagger.setHost(null);
 				swagger.setBasePath(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
-	
+
 				try {
 					return Response.ok(mapper.writeValueAsString(swagger)).build();
 				} catch (JsonProcessingException e) {
 					log.error("getApiWithoutToken Error", e);
 				}
-			}
-			else if(jsonNode != null && jsonNode.has("openapi")) {
+			} else if (jsonNode != null && !jsonNode.path("openapi").asText().isEmpty()) {
 				final OpenAPIParser openAPIParser = new OpenAPIParser();
 				SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
 				OpenAPI openAPI = swaggerParseResult.getOpenAPI();
 
 				addCustomHeaderToPaths(openAPI);
-				
-//				openAPI.getServers().forEach(s -> s.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification() + "/server/" + Base64.getEncoder().encodeToString(s.getUrl().getBytes())));
+
+				// openAPI.getServers().forEach(s -> s.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" +
+				// api.getIdentification() + "/server/" + Base64.getEncoder().encodeToString(s.getUrl().getBytes())));
 				Server server = new Server();
 				server.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
-				openAPI.setServers(Arrays.asList(new Server [] {server}));
+				openAPI.setServers(Arrays.asList(new Server[] { server }));
 				try {
 					return Response.ok(mapper.writeValueAsString(openAPI)).build();
 				} catch (JsonProcessingException e) {
@@ -192,24 +190,38 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		return Response.ok(json).build();
 	}
 
+	/**
+	 * Añade al API key a las cabeceras del objeto Swagger 2.0.
+	 * 
+	 * @param swagger
+	 */
 	private void addCustomHeaderToPaths(Swagger swagger) {
-		final Parameter header = new HeaderParameter();
+		final HeaderParameter header = new HeaderParameter();
 		header.setIn("header");
-		header.setDescription("onesait Platform API Key");
+		header.setDescription("Onesait Platform API Key");
 		header.setName(Constants.AUTHENTICATION_HEADER);
 		header.setRequired(true);
+		header.setType("string");
 		swagger.getPaths().entrySet().forEach(p -> {
 			final Path path = p.getValue();
 			path.getOperations().forEach(o -> o.addParameter(header));
 		});
 	}
-	
+
+	/**
+	 * Añade al API key a las cabeceras del objeto OpenAPI 3.0.
+	 * 
+	 * @param openAPI
+	 */
 	private void addCustomHeaderToPaths(OpenAPI openAPI) {
-		final io.swagger.v3.oas.models.parameters.Parameter header = new io.swagger.v3.oas.models.parameters.HeaderParameter();
+		final io.swagger.v3.oas.models.parameters.HeaderParameter header = new io.swagger.v3.oas.models.parameters.HeaderParameter();
 		header.setIn("header");
-		header.setDescription("onesait Platform API Key");
+		header.setDescription("Onesait Platform API Key");
 		header.setName(Constants.AUTHENTICATION_HEADER);
 		header.setRequired(true);
+		final Schema schema = new Schema();
+		schema.setType("string");
+		header.setSchema(schema);
 		openAPI.getPaths().entrySet().forEach(p -> {
 			final PathItem path = p.getValue();
 			path.readOperations().forEach(o -> o.addParametersItem(header));
