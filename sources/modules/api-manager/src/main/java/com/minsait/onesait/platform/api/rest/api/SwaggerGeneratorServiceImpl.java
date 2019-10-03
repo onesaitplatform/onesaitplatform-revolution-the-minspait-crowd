@@ -38,12 +38,14 @@ import com.minsait.onesait.platform.config.model.Api;
 import com.minsait.onesait.platform.config.model.Api.ApiType;
 import com.minsait.onesait.platform.resources.service.IntegrationResourcesService;
 
+import io.swagger.jackson.mixin.ResponseSchemaMixin;
 import io.swagger.jaxrs.config.BeanConfig;
 import io.swagger.models.Path;
 import io.swagger.models.Swagger;
 import io.swagger.models.parameters.HeaderParameter;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.parser.SwaggerParser;
+import io.swagger.util.ReferenceSerializationConfigurer;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.media.Schema;
@@ -89,6 +91,9 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		final ObjectMapper mapper = new ObjectMapper();
 		mapper.enable(SerializationFeature.INDENT_OUTPUT);
 		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		mapper.addMixIn(Response.class, ResponseSchemaMixin.class);
+		ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
+
 		String json = null;
 		try {
 			json = mapper.writeValueAsString(swagger);
@@ -127,6 +132,8 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		final ObjectMapper mapper = new ObjectMapper();
 		mapper.enable(SerializationFeature.INDENT_OUTPUT);
 		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		mapper.addMixIn(Response.class, ResponseSchemaMixin.class);
+		ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
 
 		if (api.getApiType().equals(ApiType.EXTERNAL_FROM_JSON)) {
 			JsonNode jsonNode = null;

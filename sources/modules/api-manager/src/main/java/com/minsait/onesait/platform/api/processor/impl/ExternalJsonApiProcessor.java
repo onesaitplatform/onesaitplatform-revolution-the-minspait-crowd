@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 
 import javax.script.ScriptException;
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.Response;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -50,12 +51,14 @@ import com.minsait.onesait.platform.config.model.Api;
 import com.minsait.onesait.platform.config.model.Api.ApiType;
 import com.minsait.onesait.platform.config.model.User;
 
+import io.swagger.jackson.mixin.ResponseSchemaMixin;
 import io.swagger.models.Operation;
 import io.swagger.models.Path;
 import io.swagger.models.Swagger;
 import io.swagger.models.parameters.HeaderParameter;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.parser.SwaggerParser;
+import io.swagger.util.ReferenceSerializationConfigurer;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.parser.core.models.SwaggerParseResult;
@@ -91,7 +94,11 @@ public class ExternalJsonApiProcessor implements ApiProcessor {
 	private String getUrl(Api api, String pathInfo, Map<String, String[]> queryParams) {
 		String url = null;
 		try {
-			JsonNode jsonNode = new ObjectMapper().readTree(api.getSwaggerJson());
+			final ObjectMapper mapper = new ObjectMapper();
+			mapper.addMixIn(Response.class, ResponseSchemaMixin.class);
+			ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
+
+			JsonNode jsonNode = mapper.readTree(api.getSwaggerJson());
 			if (jsonNode != null && !jsonNode.path("swagger").asText().isEmpty()) {
 				final SwaggerParser swaggerParser = new SwaggerParser();
 				final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
@@ -228,7 +235,11 @@ public class ExternalJsonApiProcessor implements ApiProcessor {
 
 	private HttpHeaders addHeaders(HttpHeaders headers, HttpServletRequest request, Api api) {
 		try {
-			JsonNode jsonNode = new ObjectMapper().readTree(api.getSwaggerJson());
+			final ObjectMapper mapper = new ObjectMapper();
+			mapper.addMixIn(Response.class, ResponseSchemaMixin.class);
+			ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
+
+			JsonNode jsonNode = mapper.readTree(api.getSwaggerJson());
 			if (jsonNode != null && !jsonNode.path("swagger").asText().isEmpty()) {
 				final SwaggerParser swaggerParser = new SwaggerParser();
 				final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
