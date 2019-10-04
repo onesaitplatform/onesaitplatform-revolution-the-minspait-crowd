@@ -14,7 +14,6 @@
  */
 package com.minsait.onesait.platform.api.processor.impl;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +21,6 @@ import java.util.stream.Collectors;
 
 import javax.script.ScriptException;
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.core.Response;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -36,8 +34,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minsait.onesait.platform.api.audit.aop.ApiManagerAuditable;
 import com.minsait.onesait.platform.api.processor.ApiProcessor;
 import com.minsait.onesait.platform.api.processor.ScriptProcessorFactory;
@@ -51,14 +47,12 @@ import com.minsait.onesait.platform.config.model.Api;
 import com.minsait.onesait.platform.config.model.Api.ApiType;
 import com.minsait.onesait.platform.config.model.User;
 
-import io.swagger.jackson.mixin.ResponseSchemaMixin;
 import io.swagger.models.Operation;
 import io.swagger.models.Path;
 import io.swagger.models.Swagger;
 import io.swagger.models.parameters.HeaderParameter;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.parser.SwaggerParser;
-import io.swagger.util.ReferenceSerializationConfigurer;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.parser.core.models.SwaggerParseResult;
@@ -93,28 +87,20 @@ public class ExternalJsonApiProcessor implements ApiProcessor {
 
 	private String getUrl(Api api, String pathInfo, Map<String, String[]> queryParams) {
 		String url = null;
-		try {
-			final ObjectMapper mapper = new ObjectMapper();
-			mapper.addMixIn(Response.class, ResponseSchemaMixin.class);
-			ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
-
-			JsonNode jsonNode = mapper.readTree(api.getSwaggerJson());
-			if (jsonNode != null && !jsonNode.path("swagger").asText().isEmpty()) {
-				final SwaggerParser swaggerParser = new SwaggerParser();
-				final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
-				url = getUrl(swagger, pathInfo);
-				url = addExtraQueryParameters(url, queryParams);
-			} else if (jsonNode != null && !jsonNode.path("openapi").asText().isEmpty()) {
-				final OpenAPIParser openAPIParser = new OpenAPIParser();
-				final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
-				final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
-				if (openAPI.getServers().size() > 0)
-					url = openAPI.getServers().get(0).getUrl(); // FIXME que hacer haya mas de 1?
-			}
-		} catch (IOException e) {
-			log.error("getApiWithoutToken Error", e);
-			// FIXME salir con una excepcion por aqui???
+		
+		final SwaggerParser swaggerParser = new SwaggerParser();
+		final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
+		if(swagger != null) {
+			url = getUrl(swagger, pathInfo);
+			url = addExtraQueryParameters(url, queryParams);
+		} else {
+			final OpenAPIParser openAPIParser = new OpenAPIParser();
+			final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
+			final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
+			if (openAPI.getServers().size() > 0)
+				url = openAPI.getServers().get(0).getUrl(); // FIXME que hacer haya mas de 1?
 		}
+				
 		return url;
 	}
 
@@ -126,8 +112,6 @@ public class ExternalJsonApiProcessor implements ApiProcessor {
 		final HttpServletRequest request = (HttpServletRequest) data.get(Constants.REQUEST);
 		@SuppressWarnings("unchecked")
 		final Map<String, String[]> queryParams = (Map<String, String[]>) data.get(Constants.QUERY_PARAMS);
-		final Swagger swagger = ApiProcessorUtils.getSwaggerFromJson(api.getSwaggerJson());
-
 		String url = null;
 		String result = null;
 		try {
@@ -234,68 +218,39 @@ public class ExternalJsonApiProcessor implements ApiProcessor {
 	}
 
 	private HttpHeaders addHeaders(HttpHeaders headers, HttpServletRequest request, Api api) {
-		try {
-			final ObjectMapper mapper = new ObjectMapper();
-			mapper.addMixIn(Response.class, ResponseSchemaMixin.class);
-			ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
-
-			JsonNode jsonNode = mapper.readTree(api.getSwaggerJson());
-			if (jsonNode != null && !jsonNode.path("swagger").asText().isEmpty()) {
-				final SwaggerParser swaggerParser = new SwaggerParser();
-				final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
-				swagger.getPaths().entrySet().forEach(e -> {
-					final Path path = e.getValue();
-					path.getOperationMap().entrySet().forEach(op -> {
-						final Operation operation = op.getValue();
-						operation.getParameters().stream().filter(p -> p instanceof HeaderParameter).forEach(p -> {
-							final String header = request.getHeader(p.getName());
-							if (!StringUtils.isEmpty(header) && !headers.containsKey(p.getName()))
-								headers.add(p.getName(), header);
-						});
+		final SwaggerParser swaggerParser = new SwaggerParser();
+		final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
+		if (swagger != null){
+			swagger.getPaths().entrySet().forEach(e -> {
+				final Path path = e.getValue();
+				path.getOperationMap().entrySet().forEach(op -> {
+					final Operation operation = op.getValue();
+					operation.getParameters().stream().filter(p -> p instanceof HeaderParameter).forEach(p -> {
+						final String header = request.getHeader(p.getName());
+						if (!StringUtils.isEmpty(header) && !headers.containsKey(p.getName()))
+							headers.add(p.getName(), header);
 					});
-				});
-			} else if (jsonNode != null && !jsonNode.path("openapi").asText().isEmpty()) {
-				final OpenAPIParser openAPIParser = new OpenAPIParser();
-				final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
-				final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
-				openAPI.getPaths().entrySet().forEach(e -> {
-					final PathItem path = e.getValue();
-					path.readOperationsMap().entrySet().forEach(op -> {
-						final io.swagger.v3.oas.models.Operation operation = op.getValue();
-						if (operation.getParameters() != null) {
-							operation.getParameters().stream().filter(p -> p instanceof io.swagger.v3.oas.models.parameters.HeaderParameter)
-									.forEach(p -> {
-										final String header = request.getHeader(p.getName());
-										if (!StringUtils.isEmpty(header) && !headers.containsKey(p.getName()))
-											headers.add(p.getName(), header);
-									});
-						}
-					});
-				});
-			}
-		} catch (Exception e) {
-			log.error("Error adding headers.", e); // FIXME mejorar
-		}
-		final String contentType = request.getContentType();
-		if (contentType == null)
-			headers.setContentType(MediaType.APPLICATION_JSON);
-		else
-			headers.setContentType(MediaType.valueOf(contentType));
-		return headers;
-	}
-
-	private HttpHeaders addHeaders(HttpHeaders headers, HttpServletRequest request, OpenAPI swagger) {
-		swagger.getPaths().entrySet().forEach(e -> {
-			final PathItem path = e.getValue();
-			path.readOperationsMap().entrySet().forEach(op -> {
-				final io.swagger.v3.oas.models.Operation operation = op.getValue();
-				operation.getParameters().stream().filter(p -> p instanceof io.swagger.v3.oas.models.parameters.HeaderParameter).forEach(p -> {
-					final String header = request.getHeader(p.getName());
-					if (!StringUtils.isEmpty(header) && !headers.containsKey(p.getName()))
-						headers.add(p.getName(), header);
 				});
 			});
-		});
+		} else  {
+			final OpenAPIParser openAPIParser = new OpenAPIParser();
+			final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
+			final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
+			openAPI.getPaths().entrySet().forEach(e -> {
+				final PathItem path = e.getValue();
+				path.readOperationsMap().entrySet().forEach(op -> {
+					final io.swagger.v3.oas.models.Operation operation = op.getValue();
+					if (operation.getParameters() != null) {
+						operation.getParameters().stream().filter(p -> p instanceof io.swagger.v3.oas.models.parameters.HeaderParameter)
+								.forEach(p -> {
+									final String header = request.getHeader(p.getName());
+									if (!StringUtils.isEmpty(header) && !headers.containsKey(p.getName()))
+										headers.add(p.getName(), header);
+								});
+					}
+				});
+			});
+		}		
 		final String contentType = request.getContentType();
 		if (contentType == null)
 			headers.setContentType(MediaType.APPLICATION_JSON);
