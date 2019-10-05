@@ -22,10 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.minsait.onesait.platform.api.rest.api.SwaggerGeneratorService;
 import com.minsait.onesait.platform.api.rest.api.dto.ApiDTO;
 import com.minsait.onesait.platform.api.rest.api.fiql.ApiFIQL;
@@ -35,7 +31,6 @@ import com.minsait.onesait.platform.api.service.api.ApiServiceRest;
 import com.minsait.onesait.platform.commons.exception.GenericOPException;
 import com.minsait.onesait.platform.config.model.Api;
 import com.minsait.onesait.platform.config.model.Api.ApiType;
-import com.minsait.onesait.platform.resources.service.IntegrationResourcesService;
 
 import io.swagger.jaxrs.config.BeanConfig;
 import io.swagger.models.Path;
@@ -43,16 +38,14 @@ import io.swagger.models.Swagger;
 import io.swagger.models.parameters.HeaderParameter;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.parser.SwaggerParser;
-import io.swagger.util.ReferenceSerializationConfigurer;
+import io.swagger.util.Json;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.parser.core.models.SwaggerParseResult;
-import lombok.extern.slf4j.Slf4j;
 
 @Component("swaggerGeneratorServiceImpl")
-@Slf4j
 public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 
 	@Autowired
@@ -62,9 +55,6 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 	private ApiFIQL apiFIQL;
 
 	private static final String BASE_PATH = "/api-manager/server/api";
-
-	@Autowired
-	private IntegrationResourcesService resourcesService;
 
 	@Value("${server.port:19090}")
 	private String port;
@@ -83,22 +73,17 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		config.setBasePath("/api" + "/" + vVersion + "/" + identificacion);
 
 		final RestSwaggerReader reader = new RestSwaggerReader();
-
 		final Swagger swagger = reader.read(apiDto, config);
 
-		final ObjectMapper mapper = new ObjectMapper();
-		mapper.enable(SerializationFeature.INDENT_OUTPUT);
-		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-		ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
+		// Get JSON data from Swagger...
+		String swaggerJson = Json.pretty(swagger);
+		
+		// ... and converts it with OpenAPI Parser
+		final OpenAPIParser openAPIParser = new OpenAPIParser();
+		final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(swaggerJson, null, null);
+		final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
 
-		String json = null;
-		try {
-			json = mapper.writeValueAsString(swagger);
-		} catch (JsonProcessingException e) {
-			log.error("getApi Error", e);
-		}
-
-		return Response.ok(json).build();
+		return Response.ok(io.swagger.v3.core.util.Json.pretty(openAPI)).build();
 	}
 
 	public ApiServiceRest getApiService() {
@@ -126,102 +111,77 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		if (api == null)
 			return Response.noContent().status(404).build();
 
-		final ObjectMapper mapper = new ObjectMapper();
-		mapper.enable(SerializationFeature.INDENT_OUTPUT);
-		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-		ReferenceSerializationConfigurer.serializeAsComputedRef(mapper);
-
 		// EXTERNAL API FROM JSON
 		if (api.getApiType().equals(ApiType.EXTERNAL_FROM_JSON)) {
 			final SwaggerParser swaggerParser = new SwaggerParser();
 			final Swagger swagger = swaggerParser.parse(api.getSwaggerJson());
 			if (swagger != null) {
 				// SWAGGER PARSER
-				return getExternalApiWithSwagger(api, mapper, swagger);
+				return getExternalApiWithSwagger(api, swagger);
 			} else {
 				// OPENAPI PARSER
 				final OpenAPIParser openAPIParser = new OpenAPIParser();
 				final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(api.getSwaggerJson(), null, null);
 				final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
-				return getExternalApiWithOpenAPI(api, mapper, openAPI);
+				return getExternalApiWithOpenAPI(api, openAPI);
 			}
 		}
 
 		// INTERNAL API
 		if (api.getApiType().equals(ApiType.INTERNAL_ONTOLOGY)) {
-			return getInternalApiWithOpenAPI(api, mapper, numVersion);
+			return getInternalApiWithOpenAPI(api, numVersion);
 		}
 
 		// OHTER API
-		return getOtherApiWithSwagger(api, mapper, numVersion);
+		return getOtherApiWithSwagger(api, numVersion);
 	}
 
-	private Response getExternalApiWithSwagger(Api api, ObjectMapper mapper, Swagger swagger) {
-		Response response = null;
+	private Response getExternalApiWithSwagger(Api api, Swagger swagger) {
 		addCustomHeaderToPaths(swagger);
 		swagger.setHost(null);
 		swagger.setBasePath(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
-		try {
-			response = Response.ok(mapper.writeValueAsString(swagger)).build();
-		} catch (JsonProcessingException e) {
-			log.error("getExternalApiWithSwagger Error", e);
-		}
-		return response;
+
+		return Response.ok(Json.pretty(swagger)).build();
 	}
 
-	private Response getExternalApiWithOpenAPI(Api api, ObjectMapper mapper, OpenAPI openAPI) {
-		Response response = null;
+	private Response getExternalApiWithOpenAPI(Api api, OpenAPI openAPI) {
 		addCustomHeaderToPaths(openAPI);
 		Server server = new Server();
 		server.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
 		openAPI.setServers(Arrays.asList(new Server[] { server }));
-		try {
-			response = Response.ok(mapper.writeValueAsString(openAPI)).build();
-		} catch (JsonProcessingException e) {
-			log.error("getExternalApiWithOpenAPI Error", e);
-		}
-		return response;
+		
+		return Response.ok(io.swagger.v3.core.util.Json.pretty(openAPI)).build();
 	}
 
-	private Response getInternalApiWithOpenAPI(Api api, ObjectMapper mapper, String numVersion) {
+	private Response getInternalApiWithOpenAPI(Api api, String numVersion) {
 		final ApiDTO apiDto = apiFIQL.toApiDTO(api);
 		final BeanConfig config = new BeanConfig();
 		config.setBasePath(BASE_PATH + "/v" + numVersion + "/" + api.getIdentification());
+		
 		final RestSwaggerReader reader = new RestSwaggerReader();
 		final Swagger swagger = reader.read(apiDto, config);
-		String json = null;
-		try {
-			// Get JSON data from Swagger...
-			json = mapper.writeValueAsString(swagger);
-		} catch (JsonProcessingException e) {
-			log.error("getApiWithoutToken Error", e);
-		}
+		// Get JSON data from Swagger...
+		String swaggerJson = Json.pretty(swagger);
+		
 		// ... and converts it with OpenAPI Parser
 		final OpenAPIParser openAPIParser = new OpenAPIParser();
-		final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(json, null, null);
+		final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(swaggerJson, null, null);
 		final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
+		
 		addCustomHeaderToPaths(openAPI);
-		try {
-			json = mapper.writeValueAsString(openAPI);
-		} catch (JsonProcessingException e) {
-			log.error("getApiWithoutToken Error", e);
-		}
+		
+		String json = io.swagger.v3.core.util.Json.pretty(openAPI);
 		return Response.ok(json).build();
 	}
 
-	private Response getOtherApiWithSwagger(Api api, ObjectMapper mapper, String numVersion) {
-		Response response = null;
+	private Response getOtherApiWithSwagger(Api api, String numVersion) {
 		final ApiDTO apiDto = apiFIQL.toApiDTO(api);
 		final BeanConfig config = new BeanConfig();
 		config.setBasePath(BASE_PATH + "/v" + numVersion + "/" + api.getIdentification());
 		final RestSwaggerReader reader = new RestSwaggerReader();
 		final Swagger swagger = reader.read(apiDto, config);
-		try {
-			response = Response.ok(mapper.writeValueAsString(swagger)).build();
-		} catch (JsonProcessingException e) {
-			log.error("getApiWithSwagger Error", e);
-		}
-		return response;
+
+		return Response.ok(Json.pretty(swagger)).build();
 	}
 
 	/**
@@ -253,7 +213,7 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		header.setDescription("Onesait Platform API Key");
 		header.setName(Constants.AUTHENTICATION_HEADER);
 		header.setRequired(true);
-		final Schema schema = new Schema();
+		final Schema<String> schema = new Schema<>();
 		schema.setType("string");
 		header.setSchema(schema);
 		openAPI.getPaths().entrySet().forEach(p -> {
