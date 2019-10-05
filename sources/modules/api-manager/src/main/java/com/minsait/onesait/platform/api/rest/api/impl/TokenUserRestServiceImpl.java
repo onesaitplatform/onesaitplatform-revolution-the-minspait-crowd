@@ -12,13 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.minsait.onesait.platform.api.rest.api;
+package com.minsait.onesait.platform.api.rest.api.impl;
 
 import javax.ws.rs.core.Response;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.minsait.onesait.platform.api.rest.api.TokenUserRestService;
 import com.minsait.onesait.platform.api.rest.api.dto.TokenUserDTO;
 import com.minsait.onesait.platform.api.rest.api.fiql.TokenUserFIQL;
 import com.minsait.onesait.platform.api.service.api.ApiServiceRest;
@@ -39,11 +40,9 @@ public class TokenUserRestServiceImpl implements TokenUserRestService {
 	@Override
 	public Response getTokenUser(String identificacion, String token) throws GenericOPException {
 		try {
-			return Response
-					.ok(tokenUser.toTokenUsuarioDTO(apiService.findTokenUserByIdentification(identificacion, token)))
-					.build();
+			return Response.ok(tokenUser.toTokenUsuarioDTO(apiService.findTokenUserByIdentification(identificacion, token))).build();
 		} catch (Exception e) {
-			log.error("Error getTokenUser",e);
+			log.error("Error getTokenUser", e);
 			return Response.serverError().build();
 		}
 	}
@@ -55,7 +54,7 @@ public class TokenUserRestServiceImpl implements TokenUserRestService {
 			tokenUsuarioDTO = tokenUser.toTokenUsuarioDTO(apiService.addTokenUsuario(identificacion, token));
 			return Response.ok(tokenUsuarioDTO.getToken()).build();
 		} catch (Exception e) {
-			log.error("Error addTokenUser",e);
+			log.error("Error addTokenUser", e);
 			return Response.serverError().build();
 		}
 	}
@@ -67,7 +66,7 @@ public class TokenUserRestServiceImpl implements TokenUserRestService {
 			tokenUsuarioDTO = tokenUser.toTokenUsuarioDTO(apiService.generateTokenUsuario(identificacion, token));
 			return Response.ok(tokenUsuarioDTO.getToken()).build();
 		} catch (Exception e) {
-			log.error("Error generateToken",e);
+			log.error("Error generateToken", e);
 			return Response.serverError().build();
 		}
 	}
