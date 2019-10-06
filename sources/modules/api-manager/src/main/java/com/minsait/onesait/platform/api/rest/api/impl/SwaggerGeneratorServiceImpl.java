@@ -77,7 +77,7 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 
 		// Get JSON data from Swagger...
 		String swaggerJson = Json.pretty(swagger);
-		
+
 		// ... and converts it with OpenAPI Parser
 		final OpenAPIParser openAPIParser = new OpenAPIParser();
 		final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(swaggerJson, null, null);
@@ -149,7 +149,7 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		Server server = new Server();
 		server.setUrl(BASE_PATH + "/v" + api.getNumversion() + "/" + api.getIdentification());
 		openAPI.setServers(Arrays.asList(new Server[] { server }));
-		
+
 		return Response.ok(io.swagger.v3.core.util.Json.pretty(openAPI)).build();
 	}
 
@@ -157,19 +157,17 @@ public class SwaggerGeneratorServiceImpl implements SwaggerGeneratorService {
 		final ApiDTO apiDto = apiFIQL.toApiDTO(api);
 		final BeanConfig config = new BeanConfig();
 		config.setBasePath(BASE_PATH + "/v" + numVersion + "/" + api.getIdentification());
-		
+
 		final RestSwaggerReader reader = new RestSwaggerReader();
 		final Swagger swagger = reader.read(apiDto, config);
 		// Get JSON data from Swagger...
 		String swaggerJson = Json.pretty(swagger);
-		
+
 		// ... and converts it with OpenAPI Parser
 		final OpenAPIParser openAPIParser = new OpenAPIParser();
 		final SwaggerParseResult swaggerParseResult = openAPIParser.readContents(swaggerJson, null, null);
 		final OpenAPI openAPI = swaggerParseResult.getOpenAPI();
-		
-		addCustomHeaderToPaths(openAPI);
-		
+
 		String json = io.swagger.v3.core.util.Json.pretty(openAPI);
 		return Response.ok(json).build();
 	}
