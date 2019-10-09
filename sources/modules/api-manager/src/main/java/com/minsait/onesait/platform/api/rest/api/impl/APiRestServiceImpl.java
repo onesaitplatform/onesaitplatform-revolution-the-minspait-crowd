@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.minsait.onesait.platform.api.rest.api;
+package com.minsait.onesait.platform.api.rest.api.impl;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +25,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import com.minsait.onesait.platform.api.rest.api.ApiRestService;
 import com.minsait.onesait.platform.api.rest.api.dto.ApiDTO;
 import com.minsait.onesait.platform.api.rest.api.fiql.ApiFIQL;
 import com.minsait.onesait.platform.api.service.api.ApiSecurityService;
@@ -60,8 +61,7 @@ public class APiRestServiceImpl implements ApiRestService {
 	}
 
 	@Override
-	public Response getApiFilter(String identificacion, String estado, String usuario, String tokenUsuario)
-			throws GenericOPException {
+	public Response getApiFilter(String identificacion, String estado, String usuario, String tokenUsuario) throws GenericOPException {
 		final User user = apiSecurityService.getUserByApiToken(tokenUsuario);
 		if (user == null)
 			return Response.status(Status.UNAUTHORIZED).build();
@@ -103,8 +103,7 @@ public class APiRestServiceImpl implements ApiRestService {
 	}
 
 	@Override
-	public Response deleteByIdentificacionNumversion(String identificacion, String numversion, String tokenUsuario)
-			throws GenericOPException {
+	public Response deleteByIdentificacionNumversion(String identificacion, String numversion, String tokenUsuario) throws GenericOPException {
 		final User user = apiSecurityService.getUserByApiToken(tokenUsuario);
 		if (user == null)
 			return Response.status(Status.UNAUTHORIZED).build();
@@ -149,7 +148,7 @@ public class APiRestServiceImpl implements ApiRestService {
 		if (apiRes != null) {
 			final Object[] params = { apiRes };
 			return Response.ok(params).build();
-		} 
+		}
 		return Response.serverError().build();
 
 	}

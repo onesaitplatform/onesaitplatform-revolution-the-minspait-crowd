@@ -68,7 +68,7 @@ spring: ## General Config
       client.metadata.user.name: ${spring.boot.admin.username}
       client.metadata.user.password: $spring.boot.admin.password} 
    datasource: ## JPA Config
-      url: jdbc:mysql://localhost:3306/onesaitplatform_config?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false&autoReconnect=true
+      url: jdbc:mysql://localhost:3306/onesaitplatform_config?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false&autoReconnect=true&enableQueryTimeouts=false
       username: root
       password: ENC(v6o0Jud8aASYCkRb+u0RTICFUR8Pd5ph) 
       driver-class-name: com.mysql.jdbc.Driver

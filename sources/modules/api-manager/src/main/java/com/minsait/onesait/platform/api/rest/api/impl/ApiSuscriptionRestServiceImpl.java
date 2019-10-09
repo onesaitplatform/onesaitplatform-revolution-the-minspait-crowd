@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.minsait.onesait.platform.api.rest.api;
+package com.minsait.onesait.platform.api.rest.api.impl;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -20,6 +20,7 @@ import javax.ws.rs.core.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.minsait.onesait.platform.api.rest.api.ApiSuscriptionRestService;
 import com.minsait.onesait.platform.api.rest.api.dto.ApiSuscripcionDTO;
 import com.minsait.onesait.platform.api.rest.api.fiql.ApiSuscripcionFIQL;
 import com.minsait.onesait.platform.api.service.api.ApiServiceRest;
@@ -36,17 +37,12 @@ public class ApiSuscriptionRestServiceImpl implements ApiSuscriptionRestService 
 
 	@Override
 	public Response getApiSuscripciones(String identificacionApi, String tokenUsuario) throws GenericOPException {
-		return Response.ok(
-				apiSuscripcionFIQL.toApiSuscripcionDTO(apiService.findApiSuscriptions(identificacionApi, tokenUsuario)))
-				.build();
+		return Response.ok(apiSuscripcionFIQL.toApiSuscripcionDTO(apiService.findApiSuscriptions(identificacionApi, tokenUsuario))).build();
 	}
 
 	@Override
-	public Response getApiSuscripcionesUsuario(String identificacionUsuario, String tokenUsuario)
-			throws GenericOPException {
-		return Response.ok(
-				apiSuscripcionFIQL.toApiSuscripcionesDTO(apiService.findApiSuscripcionesUser(identificacionUsuario)))
-				.build();
+	public Response getApiSuscripcionesUsuario(String identificacionUsuario, String tokenUsuario) throws GenericOPException {
+		return Response.ok(apiSuscripcionFIQL.toApiSuscripcionesDTO(apiService.findApiSuscripcionesUser(identificacionUsuario))).build();
 	}
 
 	@Override
